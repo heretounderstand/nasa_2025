@@ -12,7 +12,7 @@ def load_model():
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv('your_data.csv')
+    df = pd.read_csv('tess_predict.csv')
     return df
 
 # Header
@@ -180,4 +180,5 @@ st.markdown("""
 <div style='text-align: center; color: #666; padding: 20px;'>
     <p>Built with Streamlit • Powered by LightGBM • Data from NASA Exoplanet Archive</p>
 </div>
+
 """, unsafe_allow_html=True)
