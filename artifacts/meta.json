@@ -1,0 +1,118 @@
+{
+  "features": [
+    "st_pmra",
+    "st_pmdec",
+    "pl_orbper",
+    "pl_trandurh",
+    "pl_trandep",
+    "pl_rade",
+    "pl_insol",
+    "pl_eqt",
+    "st_tmag",
+    "st_dist",
+    "st_teff",
+    "st_logg",
+    "st_rad",
+    "st_mass",
+    "st_dens",
+    "a_over_rs",
+    "rp_rs",
+    "rp_rs_from_depth",
+    "depth_consistency",
+    "dur_ratio",
+    "dur_over_period",
+    "pm_total",
+    "depth_snr_proxy"
+  ],
+  "params": {
+    "objective": "binary",
+    "n_estimators": 600,
+    "learning_rate": 0.02,
+    "num_leaves": 15,
+    "min_child_samples": 20,
+    "subsample": 0.8,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.6,
+    "reg_lambda": 1.0,
+    "reg_alpha": 0.0,
+    "verbose": -1,
+    "random_state": 42
+  },
+  "n_folds": 5,
+  "n_samples": 2562,
+  "n_planets": 1267,
+  "cv_metrics": {
+    "roc_auc": 0.9349047547942575,
+    "pr_auc": 0.9221790456973036,
+    "accuracy": 0.8692427790788446,
+    "precision": 0.8535660091047041,
+    "recall": 0.8879242304656669,
+    "f1": 0.8704061895551257,
+    "log_loss": 0.32282293679061425,
+    "brier": 0.09761282635598989
+  },
+  "fold_metrics": [
+    {
+      "roc_auc": 0.9251968503937008,
+      "pr_auc": 0.9214616388633307,
+      "accuracy": 0.8538011695906432,
+      "precision": 0.8207885304659498,
+      "recall": 0.9015748031496063,
+      "f1": 0.8592870544090057,
+      "log_loss": 0.3538557543436013,
+      "brier": 0.10766678607501758
+    },
+    {
+      "roc_auc": 0.9459307451433436,
+      "pr_auc": 0.935059031091636,
+      "accuracy": 0.8791423001949318,
+      "precision": 0.884,
+      "recall": 0.8700787401574803,
+      "f1": 0.876984126984127,
+      "log_loss": 0.2982738516860474,
+      "brier": 0.0907852993192572
+    },
+    {
+      "roc_auc": 0.9505547331634288,
+      "pr_auc": 0.9430278278165987,
+      "accuracy": 0.892578125,
+      "precision": 0.8778625954198473,
+      "recall": 0.9090909090909091,
+      "f1": 0.8932038834951457,
+      "log_loss": 0.283862048992197,
+      "brier": 0.08353530664196182
+    },
+    {
+      "roc_auc": 0.9307461046591481,
+      "pr_auc": 0.9127785176357808,
+      "accuracy": 0.8671875,
+      "precision": 0.8544061302681992,
+      "recall": 0.8814229249011858,
+      "f1": 0.867704280155642,
+      "log_loss": 0.3345280514241166,
+      "brier": 0.1007233921815713
+    },
+    {
+      "roc_auc": 0.9272513620339707,
+      "pr_auc": 0.9100817026800774,
+      "accuracy": 0.853515625,
+      "precision": 0.8345864661654135,
+      "recall": 0.8774703557312253,
+      "f1": 0.8554913294797688,
+      "log_loss": 0.34358231396717065,
+      "brier": 0.10534704593580896
+    }
+  ],
+  "threshold": 0.36499999999999994,
+  "lightgbm_version": "4.7.0",
+  "legacy_cv_metrics": {
+    "roc_auc": 0.9232205708922363,
+    "pr_auc": 0.9106904774795176,
+    "accuracy": 0.8423106947697112,
+    "precision": 0.8217747949291574,
+    "recall": 0.8697711128650355,
+    "f1": 0.8450920245398773,
+    "log_loss": 0.3516133308485097,
+    "brier": 0.10951265401765152
+  }
+}

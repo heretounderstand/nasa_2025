@@ -1,7 +1,6 @@
-streamlit
-pandas
-numpy
-lightgbm
-scikit-learn
-plotly
-pickle-mixin
+streamlit>=1.40
+pandas>=2.0
+numpy>=1.26
+lightgbm>=4.3
+scikit-learn>=1.4
+plotly>=5.20
