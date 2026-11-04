@@ -5,12 +5,13 @@ from sklearn.metrics import roc_curve
 
 from exoplanet.features import RAW_FEATURES, build_features
 from exoplanet.model import DEFAULT_PARAMS, cross_validate, metrics_at
-from views.common import LEGACY, PLANET, get_oof, get_training_data, style
+from views.common import GRID, LEGACY, PLANET, get_oof, get_training_data, page_header, style
 
-st.title("🔬 Training lab")
-st.caption(
+page_header(
+    "Model",
+    "Training lab",
     "Retrain the model with your own settings. Training uses the same 5-fold cross-validation as the "
-    "production model, so the comparison below is apples-to-apples."
+    "production model, so the comparison is like for like.",
 )
 
 raw, y = get_training_data()
@@ -32,7 +33,8 @@ with st.form("params"):
                                       DEFAULT_PARAMS["reg_lambda"])
         feature_set = st.radio("Inputs", ["Physics-informed features", "Raw catalogue columns only"])
         balanced = st.toggle("Balance classes", False)
-    go_train = st.form_submit_button("Train with 5-fold CV", type="primary", use_container_width=True)
+    go_train = st.form_submit_button("Train with 5-fold CV", type="primary", use_container_width=True,
+                                     icon=":material/model_training:")
 
 if go_train:
     X = build_features(raw) if feature_set.startswith("Physics") else raw[list(RAW_FEATURES)]
@@ -63,13 +65,16 @@ for col, (k, n) in zip(cols, [("roc_auc", "ROC-AUC"), ("accuracy", "Accuracy"), 
                delta_color="inverse" if lower_better else "normal")
 
 fig = go.Figure()
-for prob, name, colr in [(oof.oof.values, "Production", PLANET), (lab["oof"], "Yours", LEGACY)]:
+fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode="lines", line=dict(color=GRID, width=1), hoverinfo="skip",
+                         showlegend=False))
+for prob, name, colr, w in [(oof.oof.values, "Production", LEGACY, 1.5), (lab["oof"], "Yours", PLANET, 2.5)]:
     fpr, tpr, _ = roc_curve(yv, prob)
-    fig.add_trace(go.Scatter(x=fpr, y=tpr, name=f"{name} (AUC {metrics_at(yv, prob)['roc_auc']:.4f})",
-                             line=dict(color=colr, width=2.5)))
+    fig.add_trace(go.Scatter(x=fpr, y=tpr, name=f"{name} · AUC {metrics_at(yv, prob)['roc_auc']:.4f}",
+                             line=dict(color=colr, width=w)))
 fig.update_xaxes(title="False positive rate")
 fig.update_yaxes(title="True positive rate")
-st.plotly_chart(style(fig, title="ROC curve (out-of-fold)", height=420), use_container_width=True)
+with st.container(border=True):
+    st.plotly_chart(style(fig, title="ROC curve (out-of-fold)", height=420), use_container_width=True)
 
 diff = np.abs(lab["oof"] - oof.oof.values)
 st.caption(f"Predictions differ by more than 10 points on {(diff > 0.1).mean():.1%} of TOIs.")

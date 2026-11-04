@@ -1,7 +1,10 @@
 """Exoplanet Hunter – entry point.  Run with:  streamlit run app.py"""
 import streamlit as st
 
+from views.common import inject_css
+
 st.set_page_config(page_title="Exoplanet Hunter", page_icon="🪐", layout="wide")
+inject_css()
 
 pages = st.navigation(
     {
@@ -18,9 +21,10 @@ pages = st.navigation(
 )
 
 with st.sidebar:
+    st.markdown("### 🪐 Exoplanet Hunter")
     st.caption(
-        "NASA Space Apps 2025 · *A World Away: Hunting for Exoplanets with AI*  \n"
-        "Data: [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu), TOI table."
+        "NASA Space Apps 2025  \n*A World Away: Hunting for Exoplanets with AI*  \n\n"
+        "Data: [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu) · TOI table"
     )
 
 pages.run()

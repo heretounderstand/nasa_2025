@@ -2,98 +2,135 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 
-from views.common import FALSE_POS, PLANET, get_model, get_scored_candidates, label, style
+from views.common import (
+    FALSE_POS,
+    GRID,
+    MUTED,
+    PLANET,
+    PROB_SCALE,
+    TEXT_2,
+    get_model,
+    get_scored_candidates,
+    sky_figure,
+    step_card,
+    style,
+)
 
 model = get_model()
-meta = model.meta
-cv = meta["cv_metrics"]
+cv = model.meta["cv_metrics"]
 cands = get_scored_candidates()
 thr = model.threshold
+n_strong = int((cands.probability >= 0.9).sum())
 
-st.title("🪐 Exoplanet Hunter")
 st.markdown(
-    "#### Triage of TESS Objects of Interest: which transit signals are real planets?\n"
-    "TESS has flagged thousands of periodic dips in starlight. Only a fraction are planets – the rest are "
-    "eclipsing binaries, blended stars or instrumental artefacts, and confirming each one needs expensive "
-    "ground-based follow-up. This tool ranks every open candidate by how *planet-like* its signal is, and "
-    "explains why."
+    f"""
+<div class="exo-hero">
+  <div class="exo-planet"></div>
+  <div class="exo-eyebrow">NASA Space Apps 2025 · TESS</div>
+  <h1 class="exo-title">Which of these signals<br>are real planets?</h1>
+  <div class="exo-sub">TESS has flagged thousands of periodic dips in starlight. Many are eclipsing binaries,
+  blended stars or artefacts, and confirming each one needs telescope time. Exoplanet Hunter ranks
+  <b>{len(cands):,} open candidates</b> by how planet-like their signal is, and explains every score.</div>
+</div>
+""",
+    unsafe_allow_html=True,
 )
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Candidates scored", f"{len(cands):,}")
-c2.metric("Predicted planets", f"{(cands.probability >= thr).sum():,}", help=f"Probability ≥ {thr:.2f}")
-c3.metric("Cross-validated ROC-AUC", f"{cv['roc_auc']:.3f}", help="Out-of-fold, never seen by the model")
-c4.metric("Cross-validated accuracy", f"{cv['accuracy']:.1%}")
+c1.metric("Open candidates scored", f"{len(cands):,}")
+c2.metric("High-confidence planets", f"{n_strong:,}", help="Probability ≥ 90 %")
+c3.metric("ROC-AUC (cross-validated)", f"{cv['roc_auc']:.3f}", help="Measured on TOIs the model never saw")
+c4.metric("Accuracy (cross-validated)", f"{cv['accuracy']:.1%}", help="At a 0.5 threshold")
 
-st.divider()
-left, right = st.columns([1.1, 1])
+st.write("")
+with st.container(border=True):
+    st.markdown("#### The candidate population")
+    tab_pr, tab_sky, tab_hist = st.tabs(["Period vs. radius", "Sky map", "Score distribution"])
 
-with left:
-    st.subheader("Where the candidates fall")
-    df = cands.dropna(subset=["pl_orbper", "pl_rade"])
-    fig = go.Figure(
-        go.Scattergl(
-            x=df.pl_orbper,
-            y=df.pl_rade,
-            mode="markers",
-            showlegend=False,
-            marker=dict(
-                size=5,
-                color=df.probability,
-                colorscale=[[0, FALSE_POS], [0.5, "#EDEDED"], [1, PLANET]],
-                cmin=0,
-                cmax=1,
-                opacity=0.75,
-                colorbar=dict(title="P(planet)", tickformat=".0%"),
-            ),
+    with tab_pr:
+        df = cands.dropna(subset=["pl_orbper", "pl_rade"])
+        fig = go.Figure()
+        for r, name in [(1, "Earth"), (3.9, "Neptune"), (11.2, "Jupiter")]:
+            fig.add_trace(go.Scatter(
+                x=[0.15, 2500], y=[r, r], mode="lines+text", text=["", name], textposition="top left",
+                line=dict(color=GRID, width=1), hoverinfo="skip", showlegend=False,
+                textfont=dict(color=MUTED, size=12)))
+        fig.add_trace(go.Scattergl(
+            x=df.pl_orbper, y=df.pl_rade, mode="markers", showlegend=False,
+            marker=dict(size=6, color=df.probability, colorscale=PROB_SCALE, cmin=0, cmax=1, opacity=0.85,
+                        line=dict(width=0),
+                        colorbar=dict(title=dict(text="P(planet)", side="right"), tickformat=".0%", thickness=10,
+                                      outlinewidth=0, len=0.9)),
             customdata=np.stack([df.tid, df.probability], axis=1),
-            hovertemplate="TIC %{customdata[0]}<br>P = %{x:.2f} d, R = %{y:.1f} R⊕"
-            "<br>P(planet) = %{customdata[1]:.0%}<extra></extra>",
+            hovertemplate="<b>%{customdata[1]:.0%}</b> planet<br>TIC %{customdata[0]}"
+                          "<br>Period %{x:.2f} d · Radius %{y:.1f} × Earth<extra></extra>",
+        ))
+        fig.update_xaxes(type="log", dtick=1, title="Orbital period [days]", range=[np.log10(0.15), np.log10(2500)])
+        fig.update_yaxes(type="log", dtick=1, title="Planet radius [Earth radii]")
+        st.plotly_chart(style(fig, height=470, margin=dict(l=8, r=8, t=16, b=8)), use_container_width=True)
+        st.caption("Blue = planet-like, orange = false-positive-like. Objects much larger than Jupiter "
+                   "(top band) are mostly eclipsing binaries, and the model learned that.")
+
+    with tab_sky:
+        fig = sky_figure(
+            cands.ra, cands.dec, cands.probability,
+            np.stack([cands.tid, cands.probability, cands.ra, cands.dec], axis=1),
+            "<b>%{customdata[1]:.0%}</b> planet<br>TIC %{customdata[0]}"
+            "<br>RA %{customdata[2]:.1f}° · Dec %{customdata[3]:.1f}°<extra></extra>",
         )
-    )
-    fig.update_xaxes(type="log", dtick=1, title=label("pl_orbper"))
-    fig.update_yaxes(type="log", dtick=1, title=label("pl_rade"))
-    xr = [df.pl_orbper.min(), df.pl_orbper.max()]
-    for r, name in [(1, "Earth"), (3.9, "Neptune"), (11.2, "Jupiter")]:
-        fig.add_trace(go.Scatter(x=xr, y=[r, r], mode="lines+text", text=["", name], textposition="top left",
-                                 line=dict(color="rgba(255,255,255,0.3)", dash="dot"), hoverinfo="skip",
-                                 showlegend=False, textfont=dict(color="rgba(255,255,255,0.6)")))
-    st.plotly_chart(style(fig, height=460), use_container_width=True)
-    st.caption("Very large 'planets' (> ~2 R♃) are almost always eclipsing binaries – the model learns this.")
+        st.plotly_chart(style(fig, height=470, margin=dict(l=0, r=0, t=10, b=0)), use_container_width=True)
+        st.caption("Equatorial coordinates (Mollweide projection). The dense patches near the ecliptic poles are "
+                   "TESS's continuous viewing zones. Sky position is deliberately *not* a model input.")
 
-with right:
-    st.subheader("How it works")
-    st.markdown(
-        """
-1. **Physics-informed features.** On top of the catalogue values the model derives what a human vetter
-   would check: does the **transit depth match** the planet/star radii? Is the **transit duration
-   consistent** with Kepler's third law for this star? What is the star's density?
-2. **Gradient-boosted trees (LightGBM)** trained on 2,562 TOIs already dispositioned by the TESS
-   Follow-up Observing Program (confirmed/known planets vs. false positives/alarms).
-   Missing values are handled natively – no guess-work imputation.
-3. **Honest evaluation.** 5-fold stratified cross-validation; every score shown in the app is computed
-   on objects the model never trained on.
-4. **Ensemble + uncertainty.** The 5 fold models vote; their disagreement is reported as uncertainty.
-5. **Explanations.** Each prediction is broken down into per-feature contributions (TreeSHAP).
-        """
-    )
-    st.info("Start with the **Candidate explorer** to browse the most promising targets.", icon="🔭")
+    with tab_hist:
+        bins = np.linspace(0, 1, 41)
+        counts, _ = np.histogram(cands.probability, bins)
+        centers = (bins[:-1] + bins[1:]) / 2
+        fig = go.Figure(go.Bar(
+            x=centers, y=counts, width=0.025 * 0.85,
+            marker_color=[PLANET if c >= thr else FALSE_POS for c in centers],
+            hovertemplate="P(planet) %{x:.0%}<br><b>%{y}</b> candidates<extra></extra>"))
+        fig.add_vline(x=thr, line=dict(color=TEXT_2, width=1),
+                      annotation_text=f"decision threshold {thr:.2f}", annotation_font_color=TEXT_2)
+        fig.update_xaxes(title="Planet probability", tickformat=".0%")
+        fig.update_yaxes(title="Candidates")
+        st.plotly_chart(style(fig, height=420, showlegend=False), use_container_width=True)
+        st.caption("Most candidates are scored confidently at either end; the middle is where follow-up "
+                   "observations matter most.")
 
-st.divider()
-st.subheader("Most promising candidates")
-top = cands.head(10)[["rank", "tid", "probability", "uncertainty", "pl_orbper", "pl_rade", "pl_eqt", "st_tmag"]]
-st.dataframe(
-    top,
-    hide_index=True,
-    use_container_width=True,
-    column_config={
-        "rank": "Rank",
-        "tid": st.column_config.NumberColumn("TIC ID", format="%d"),
-        "probability": st.column_config.ProgressColumn("P(planet)", min_value=0, max_value=1, format="percent"),
-        "uncertainty": st.column_config.NumberColumn("± (fold spread)", format="%.3f"),
-        "pl_orbper": st.column_config.NumberColumn("Period [d]", format="%.3f"),
-        "pl_rade": st.column_config.NumberColumn("Radius [R⊕]", format="%.2f"),
-        "pl_eqt": st.column_config.NumberColumn("Teq [K]", format="%.0f"),
-        "st_tmag": st.column_config.NumberColumn("Tmag", format="%.2f"),
-    },
-)
+st.write("")
+st.markdown("#### How it works")
+steps = [
+    ("Physics checks", "Derive what a human vetter checks: does the <b>transit depth</b> match the radii? Is the "
+                       "<b>duration</b> consistent with Kepler's law for this star?"),
+    ("Learn from labels", "LightGBM trained on <b>2,562 TOIs</b> already confirmed or rejected by the TESS "
+                          "follow-up programme. Missing values handled natively."),
+    ("Honest scores", "Every metric comes from <b>5-fold cross-validation</b>, measured on objects the model "
+                      "never trained on."),
+    ("Explain & rank", "Five fold-models vote, their spread is the <b>uncertainty</b>, and SHAP shows "
+                       "<b>why</b> each score came out as it did."),
+]
+for col, (i, (t, d)) in zip(st.columns(4), enumerate(steps, 1)):
+    col.markdown(step_card(i, t, d), unsafe_allow_html=True)
+
+st.write("")
+with st.container(border=True):
+    h1, h2 = st.columns([3, 1], vertical_alignment="center")
+    h1.markdown("#### Top 10 candidates")
+    h2.page_link("views/candidates.py", label="Open the explorer", icon=":material/arrow_forward:")
+    top = cands.head(10)[["rank", "tid", "probability", "uncertainty", "pl_orbper", "pl_rade", "pl_eqt", "st_tmag"]]
+    st.dataframe(
+        top,
+        hide_index=True,
+        use_container_width=True,
+        column_config={
+            "rank": st.column_config.NumberColumn("#", width="small"),
+            "tid": st.column_config.NumberColumn("TIC ID", format="%d"),
+            "probability": st.column_config.ProgressColumn("P(planet)", min_value=0, max_value=1, format="percent"),
+            "uncertainty": st.column_config.NumberColumn("± spread", format="%.3f"),
+            "pl_orbper": st.column_config.NumberColumn("Period [d]", format="%.2f"),
+            "pl_rade": st.column_config.NumberColumn("Radius (× Earth)", format="%.2f"),
+            "pl_eqt": st.column_config.NumberColumn("Teq [K]", format="%.0f"),
+            "st_tmag": st.column_config.NumberColumn("TESS mag", format="%.1f"),
+        },
+    )
